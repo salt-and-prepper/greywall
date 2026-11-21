@@ -65,11 +65,11 @@ scripts/               Smoke tests, benchmarks, release
 
 4 direct deps: `doublestar` (glob matching), `cobra` (CLI), `jsonc` (config parsing), `golang.org/x/sys`.
 
-Runtime (Linux): `bubblewrap`, `socat`, embedded `tun2socks` v2.5.2.
+Runtime (Linux): `bubblewrap`, `socat`, embedded `tun2socks` (built from source by `scripts/build-tun2socks.sh`; see FORK.md).
 
 ## CI
 
-GitHub Actions workflows: `main.yml` (build/lint/test on Linux+macOS), `release.yml` (GoReleaser + SLSA provenance), `benchmark.yml`.
+GitHub Actions workflows: `main.yml` (build/lint/test on Linux+macOS), `release.yml` (fork release, see FORK.md), `benchmark.yml`.
 
 ## Release
 

@@ -1,12 +1,14 @@
 module github.com/GreyhavenHQ/greywall
 
-go 1.25
+go 1.26.0
+
+toolchain go1.26.11
 
 require (
 	github.com/bmatcuk/doublestar/v4 v4.9.1
 	github.com/spf13/cobra v1.8.1
 	github.com/tidwall/jsonc v0.3.2
-	golang.org/x/sys v0.39.0
+	golang.org/x/sys v0.50.0
 )
 
 require (

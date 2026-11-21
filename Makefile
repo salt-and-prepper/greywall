@@ -5,7 +5,7 @@ GOTEST=$(GOCMD) test
 GOMOD=$(GOCMD) mod
 BINARY_NAME=greywall
 BINARY_UNIX=$(BINARY_NAME)_unix
-TUN2SOCKS_VERSION=v2.5.2
+# tun2socks is built from source by scripts/build-tun2socks.sh (FORK.md).
 TUN2SOCKS_BIN_DIR=internal/sandbox/bin
 
 .PHONY: all build build-ci build-linux test test-ci clean deps install-lint-tools install-hooks setup setup-ci run fmt fmt-check lint release release-minor release-beta download-tun2socks help
@@ -13,22 +13,10 @@ TUN2SOCKS_BIN_DIR=internal/sandbox/bin
 all: build
 
 download-tun2socks:
-	@mkdir -p $(TUN2SOCKS_BIN_DIR)
 	@if [ -f $(TUN2SOCKS_BIN_DIR)/tun2socks-linux-amd64 ] && [ -f $(TUN2SOCKS_BIN_DIR)/tun2socks-linux-arm64 ]; then \
-		echo "tun2socks binaries already cached in $(TUN2SOCKS_BIN_DIR)/"; \
+		echo "tun2socks binaries already present in $(TUN2SOCKS_BIN_DIR)/"; \
 	else \
-		echo "Downloading tun2socks $(TUN2SOCKS_VERSION)..."; \
-		curl -sL "https://github.com/xjasonlyu/tun2socks/releases/download/$(TUN2SOCKS_VERSION)/tun2socks-linux-amd64.zip" -o /tmp/tun2socks-linux-amd64.zip; \
-		unzip -o -q /tmp/tun2socks-linux-amd64.zip -d /tmp/tun2socks-amd64; \
-		mv /tmp/tun2socks-amd64/tun2socks-linux-amd64 $(TUN2SOCKS_BIN_DIR)/tun2socks-linux-amd64; \
-		chmod +x $(TUN2SOCKS_BIN_DIR)/tun2socks-linux-amd64; \
-		rm -rf /tmp/tun2socks-linux-amd64.zip /tmp/tun2socks-amd64; \
-		curl -sL "https://github.com/xjasonlyu/tun2socks/releases/download/$(TUN2SOCKS_VERSION)/tun2socks-linux-arm64.zip" -o /tmp/tun2socks-linux-arm64.zip; \
-		unzip -o -q /tmp/tun2socks-linux-arm64.zip -d /tmp/tun2socks-arm64; \
-		mv /tmp/tun2socks-arm64/tun2socks-linux-arm64 $(TUN2SOCKS_BIN_DIR)/tun2socks-linux-arm64; \
-		chmod +x $(TUN2SOCKS_BIN_DIR)/tun2socks-linux-arm64; \
-		rm -rf /tmp/tun2socks-linux-arm64.zip /tmp/tun2socks-arm64; \
-		echo "tun2socks binaries downloaded to $(TUN2SOCKS_BIN_DIR)/"; \
+		./scripts/build-tun2socks.sh $(TUN2SOCKS_BIN_DIR); \
 	fi
 
 build: download-tun2socks

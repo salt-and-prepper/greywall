@@ -1,37 +1,84 @@
-name: goreleaser
+name: release
 
+# Fork release (FORK.md): on a v<upstream>-ellwood.<n> tag, run the Linux
+# test suite, build tun2socks from source (scripts/build-tun2socks.sh) and
+# greywall for linux/amd64 and linux/arm64 (not UPX-packed, so scanners can
+# read their Go build info), attest build provenance, and publish a GitHub
+# release. The tun2socks binaries are also published on their own: inside
+# greywall they are embedded data that scanners can't see.
 on:
   push:
-    # run only against tags
     tags:
-      - 'v*'
+      - "v*-ellwood.*"
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  goreleaser:
+  release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write       # create the release
+      id-token: write       # sign the provenance attestation
+      attestations: write   # store it
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - run: git fetch --force --tags
-      - uses: actions/setup-go@v5
+          persist-credentials: false
+
+      - uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: go.mod
-          cache: true
-      - name: Install UPX
-        uses: crazy-max/ghaction-upx@v3
+          cache: false
+
+      - name: Install Linux sandbox dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap socat xdg-dbus-proxy libsecret-tools uidmap curl netcat-openbsd ripgrep
+          echo "$(whoami):100000:65536" | sudo tee -a /etc/subuid
+          echo "$(whoami):100000:65536" | sudo tee -a /etc/subgid
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Build tun2socks from source
+        run: ./scripts/build-tun2socks.sh internal/sandbox/bin
+
+      - name: Vet and test
+        run: |
+          go vet ./...
+          go test -count=1 ./...
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          VER="${GITHUB_REF_NAME#v}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          DATE="$(git log -1 --format=%cI)"
+          mkdir -p dist
+          for ARCH in amd64 arm64; do
+            case "$ARCH" in amd64) LABEL=x86_64 ;; *) LABEL="$ARCH" ;; esac
+            STAGE="$(mktemp -d)"
+            CGO_ENABLED=0 GOOS=linux GOARCH="$ARCH" go build -trimpath \
+              -ldflags "-s -w -X main.version=${VER} -X main.buildTime=${DATE} -X main.gitCommit=${COMMIT}" \
+              -o "${STAGE}/greywall" ./cmd/greywall
+            cp README.md LICENSE ARCHITECTURE.md CONTRIBUTING.md "${STAGE}/"
+            tar -C "${STAGE}" --owner=0 --group=0 --numeric-owner --mtime="${DATE}" --sort=name \
+              -czf "dist/greywall_${VER}_Linux_${LABEL}.tar.gz" ARCHITECTURE.md CONTRIBUTING.md LICENSE README.md greywall
+            cp "internal/sandbox/bin/tun2socks-linux-${ARCH}" "dist/tun2socks-linux-${ARCH}"
+          done
+          (cd dist && sha256sum ./* | sed 's| \./| |' > checksums.txt)
+          cat dist/checksums.txt
+
+      - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          install-only: true
-      - name: Download tun2socks binaries
-        run: make download-tun2socks
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          distribution: goreleaser
-          version: '~> v2'
-          args: release --clean
+          subject-path: |
+            dist/*.tar.gz
+            dist/tun2socks-linux-*
+
+      - name: Publish release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/*.tar.gz dist/tun2socks-linux-* dist/checksums.txt \
+            --verify-tag --title "${GITHUB_REF_NAME}" \
+            --notes "Fork release of GreyhavenHQ/greywall (see FORK.md). Static linux/amd64 and linux/arm64 builds, not UPX-packed, embedding tun2socks built from source with current dependencies (also attached separately). Build provenance attested (gh attestation verify <file> --repo ${GITHUB_REPOSITORY})."

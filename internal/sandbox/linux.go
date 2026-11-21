@@ -1075,6 +1075,14 @@ func isSystemMountPoint(path string) bool {
 	return false
 }
 
+// tun2socksCommand returns the in-sandbox tun2socks command line. It uses the
+// long flag forms: tun2socks v2.6+ parses flags with pflag, which reads
+// "-device tun0" as the -d shorthand with the value "evice" (and "-proxy" as
+// -p "roxy"), leaving tun0 unserved. v2.5's stdlib flag accepts both forms.
+func tun2socksCommand(proxyURL string) string {
+	return "/tmp/greywall-tun2socks --device tun0 --proxy " + proxyURL
+}
+
 // WrapCommandLinux wraps a command with Linux bubblewrap sandbox.
 // It uses available security features (Landlock, seccomp) with graceful fallback.
 func WrapCommandLinux(cfg *config.Config, command string, proxyBridge *ProxyBridge, dnsBridge *DnsBridge, reverseBridge *ReverseBridge, forwardBridge *ForwardBridge, dbusBridge *DbusBridge, tun2socksPath string, debug bool) (string, error) {
@@ -1489,10 +1497,10 @@ socat TCP-LISTEN:${PROXY_PORT},fork,reuseaddr,bind=127.0.0.1 UNIX-CONNECT:%s >/d
 BRIDGE_PID=$!
 
 # Start tun2socks (transparent proxy via gvisor netstack)
-/tmp/greywall-tun2socks -device tun0 -proxy %s >/dev/null 2>&1 &
+%s >/dev/null 2>&1 &
 TUN2SOCKS_PID=$!
 
-`, proxyBridge.SocketPath, tun2socksProxyURL)
+`, proxyBridge.SocketPath, tun2socksCommand(tun2socksProxyURL))
 
 		// DNS relay: only needed when using a dedicated DNS bridge.
 		// When using tun2socks without a DNS bridge, resolv.conf is configured with

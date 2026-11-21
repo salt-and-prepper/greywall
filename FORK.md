@@ -15,6 +15,9 @@ What differs from upstream v0.3.7:
   `golang.org/x` modules ([`scripts/build-tun2socks.sh`](scripts/build-tun2socks.sh));
   `make download-tun2socks` runs it. The embedded binaries are invisible to
   vulnerability scanners, so each release also attaches them separately.
+  tun2socks v2.6+ parses flags with pflag, so the sandbox starts it with
+  `--device`/`--proxy` (the single-dash forms upstream uses are read as
+  `-d evice`/`-p roxy`); fixed in `v0.3.7-ellwood.2`.
 - **Releases:** tags `v<upstream version>-ellwood.<n>` build static
   `linux/amd64` and `linux/arm64` archives with
   [`.github/workflows/release.yml`](.github/workflows/release.yml), after the

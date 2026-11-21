@@ -21,6 +21,8 @@ X_MODULES=(
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:-$ROOT/internal/sandbox/bin}"
+mkdir -p "$OUT"
+OUT="$(cd "$OUT" && pwd)"   # absolute: the build below runs in a temp checkout
 TOOLCHAIN="$(awk '/^toolchain /{print $2}' "$ROOT/go.mod")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -37,7 +39,6 @@ export GOTOOLCHAIN="${TOOLCHAIN:-auto}" GOFLAGS=-mod=mod
 go get "${X_MODULES[@]}" "toolchain@${TOOLCHAIN}"
 go mod tidy
 
-mkdir -p "$OUT"
 module="github.com/xjasonlyu/tun2socks/v2"
 for arch in amd64 arm64; do
   CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build -trimpath \
